@@ -1,6 +1,7 @@
 "use strict"
 
 const input = document.querySelector('#excel');
+var db = firebase.firestore();
 
 input.addEventListener('change', handleImport);
 
@@ -32,19 +33,36 @@ function handleImport(e) {
 	const reader = new FileReader()
 	reader.readAsArrayBuffer(this.file)
 	reader.onload = () => {
-	  const buffer = reader.result;
-	  wb.xlsx.load(buffer).then(workbook => {
-		workbook.eachSheet((sheet, id) => {
-		  sheet.eachRow((row, rowIndex) => {
-			console.log(row.values, rowIndex)
-		  })
+		const buffer = reader.result;
+		wb.xlsx.load(buffer).then(workbook => {
+			workbook.eachSheet((sheet, id) => {
+				const promises = [];
+				sheet.eachRow((row, rowIndex) => {
+					//Skip header
+					if (rowIndex > 1) {
+						let p = db.collection("places2").doc(row.values[1]).set({
+							[row.values[2]]: firebase.firestore.FieldValue.arrayUnion(row.values[3])
+						}).then((docRef) => {
+							console.log("Success");
+						}).catch((error) => {
+							console.error("Error adding document: ", error);
+						});
+						promises.push(p);
+					}
+				});
+				console.log("Starting upload")
+				Promise.all(promises).then((docRef) => {
+					console.log("Upload completed");
+				}).catch((error) => {
+					console.error("Error adding document: ", error);
+				});
+			})
 		})
-	  })
 	}
-  }
+}
 
-  function start(){
+function start() {
 
-  }
+}
 
 document.addEventListener("DOMContentLoaded", start());
