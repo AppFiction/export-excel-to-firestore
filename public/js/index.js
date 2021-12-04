@@ -37,26 +37,32 @@ function handleImport(e) {
 		wb.xlsx.load(buffer).then(workbook => {
 			workbook.eachSheet((sheet, id) => {
 				const promises = [];
+				const objects = [];
 				sheet.eachRow((row, rowIndex) => {
+					if (!objects[row.values[1]]) {
+						objects[row.values[1]] = {}
+					}
+					let obj = objects[row.values[1]]
 					//Skip header
 					if (rowIndex > 1) {
-						let p = db.collection("places2").doc(row.values[1]).set({
-							[row.values[2]]: firebase.firestore.FieldValue.arrayUnion(row.values[3])
-						}).then((docRef) => {
-							console.log("Success");
-						}).catch((error) => {
-							console.error("Error adding document: ", error);
-						});
-						promises.push(p);
+						if (!obj[row.values[2]]) {
+							obj[row.values[2]] = [];
+						}
+						obj[row.values[2]].push(row.values[3]);
 					}
 				});
-				console.log("Starting upload")
-				Promise.all(promises).then((docRef) => {
-					console.log("Upload completed");
+				var batch = db.batch();
+				Object.keys(objects).forEach((key) => {
+					let newDoc = objects[key];
+					var refnce = db.collection("places").doc(key);
+					batch.set(refnce, newDoc);
+				});
+				batch.commit().then(() => {
+					console.error("Success");
 				}).catch((error) => {
 					console.error("Error adding document: ", error);
 				});
-			})
+			});
 		})
 	}
 }
